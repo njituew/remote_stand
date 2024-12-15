@@ -17,7 +17,8 @@
 // Абстрактный класс Stand
 class Stand {
 public:
-    virtual ~Stand() = default;  // Виртуальный деструктор, чтобы базовый класс мог быть удален через указатель на Stand
+    // Виртуальный деструктор, чтобы базовый класс мог быть удален через указатель на Stand
+    virtual ~Stand() = default;
 
     // Виртуальный метод для вывода информации о стенде (переопределяется в наследниках)
     virtual void printInfo() const = 0;
@@ -76,6 +77,7 @@ public:
     // Переопределение метода для вывода информации о стенде
     void printInfo() const override {
         std::time_t freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
+
         std::cout << "Board Name: " << boardName << "\n";
         std::cout << "Free Time: " << std::ctime(&freeTime_t); // выводим время в читаемом формате
     }
@@ -110,6 +112,7 @@ public:
             boardName = other.boardName;
             freeTime = other.freeTime;
         }
+
         return *this;
     }
 
@@ -142,6 +145,7 @@ void testRemoteStand() {
     // Проверка сеттеров
     stand1.setBoardName("New Board A");
     assert(stand1.getBoardName() == "New Board A");
+
     system_clock::time_point newTime = system_clock::now() + hours(3);
     stand1.setFreeTime(newTime);
     assert(stand1.getFreeTime() == newTime);
@@ -197,9 +201,11 @@ public:
     // Метод для удаления стенда из кластера по названию платы
     void removeStand(const std::string& boardName, const RemoteStand& stand) {
         auto it = stands.find(boardName);
+
         if (it != stands.end()) {
             auto& standVector = it->second;
             auto vecIt = std::remove(standVector.begin(), standVector.end(), stand);
+
             if (vecIt != standVector.end()) {
                 standVector.erase(vecIt, standVector.end());
             }
@@ -214,6 +220,7 @@ public:
     // Метод для увеличения времени освобождения всех стендов на заданный кулдаун
     void increaseCooldownForAllStands(const std::string& boardName, std::chrono::minutes delay) {
         auto it = stands.find(boardName);
+
         if (it != stands.end()) {
             for (auto& stand : it->second) {
                 stand.increaseDelay(delay);
@@ -230,6 +237,7 @@ public:
     void printAllStands() const {
         for (const auto& pair : stands) {
             std::cout << "Board: " << pair.first << "\n";
+
             for (const auto& stand : pair.second) {
                 stand.printInfo();
             }
@@ -248,6 +256,7 @@ public:
         if (this != &other) {
             stands = other.stands;
         }
+
         return *this;
     }
 
@@ -266,14 +275,17 @@ public:
         if (stands.size() != other.stands.size()) {
             return stands.size() < other.stands.size();
         }
+
         for (const auto& pair : stands) {
             if (other.stands.find(pair.first) == other.stands.end()) {
                 return false; // Если в другом кластере нет такой платы, то этот кластер "меньше"
             }
+
             if (pair.second.size() != other.stands.at(pair.first).size()) {
                 return pair.second.size() < other.stands.at(pair.first).size();
             }
         }
+
         return false;
     }
 
@@ -329,26 +341,31 @@ void testStandCluster() {
     auto updatedStandsA = cluster.getStandsByBoard("Board A");
     auto originalFreeTime = stand2.getFreeTime();
     auto updatedFreeTime = updatedStandsA[0].getFreeTime();
+
     assert(updatedFreeTime == originalFreeTime + cooldown);  // Время должно быть увеличено на 30 минут
 
     // Тест 5: Очистка всех стендов
     cluster.clearAllStands();
+
     assert(cluster.getStandsByBoard("Board A").empty());  // Все стенды для Board A должны быть удалены
     assert(cluster.getStandsByBoard("Board B").empty());  // Все стенды для Board B должны быть удалены
 
     // Тест 6: Конструктор копирования
     StandCluster copiedCluster(cluster);
+
     assert(copiedCluster.getStandsByBoard("Board A").empty());  // Проверка, что копия пустая после очистки
     assert(copiedCluster.getStandsByBoard("Board B").empty());  // Проверка, что копия пустая после очистки
 
     // Тест 7: Оператор присваивания
     StandCluster assignedCluster;
     assignedCluster = cluster;
+
     assert(assignedCluster.getStandsByBoard("Board A").empty());  // Проверка оператора присваивания
     assert(assignedCluster.getStandsByBoard("Board B").empty());  // Проверка оператора присваивания
 
     // Тест 8: Оператор сравнения (==)
     StandCluster cluster2;
+
     cluster2.addStand(stand1);
     cluster2.addStand(stand2);
     cluster2.addStand(stand3);
@@ -362,6 +379,7 @@ void testStandCluster() {
 
     // Тест 10: Оператор сравнения (<)
     StandCluster cluster3;
+
     cluster3.addStand(stand1);
     cluster3.addStand(stand2);
     cluster3.addStand(stand4);
@@ -430,6 +448,7 @@ void testIsValidFilePath() {
 bool isValidGroup(const std::string& group) {
     // Проверка на строку, состоящую из букв (русских и латинских) и цифр
     std::regex groupPattern("^[a-zA-Zа-яА-Я0-9]+$");
+
     return std::regex_match(group, groupPattern);
 }
 
@@ -467,6 +486,7 @@ void testIsValidName() {
 
 bool checkFile(const std::string& filename) {
     std::ifstream file(filename);
+
     if (!file.is_open()) {
         std::cerr << "Не удалось открыть файл: " << filename << std::endl;
         return false;
@@ -474,42 +494,49 @@ bool checkFile(const std::string& filename) {
 
     std::string line;
     std::getline(file, line);  // Фамилия
+
     if (!isValidName(line)) {
         std::cerr << "Ошибка в фамилии: " << line << std::endl;
         return false;
     }
 
     std::getline(file, line);  // Имя
+
     if (!isValidName(line)) {
         std::cerr << "Ошибка в имени: " << line << std::endl;
         return false;
     }
 
     std::getline(file, line);  // Отчество
+
     if (!isValidName(line)) {
         std::cerr << "Ошибка в отчество: " << line << std::endl;
         return false;
     }
 
     std::getline(file, line);  // Группа
+
     if (!isValidGroup(line)) {
         std::cerr << "Ошибка в группе: " << line << std::endl;
         return false;
     }
 
     std::getline(file, line);  // Название платы
+
     if (line.empty()) {
         std::cerr << "Название платы не может быть пустым." << std::endl;
         return false;
     }
 
     std::getline(file, line);  // Путь к исполняемому файлу
+
     if (!isValidFilePath(line)) {
         std::cerr << "Неверный путь к исполняемому файлу: " << line << std::endl;
         return false;
     }
 
     std::getline(file, line);  // Путь для сохранения результата
+
     if (!isValidFilePath(line)) {
         std::cerr << "Неверный путь для сохранения результата: " << line << std::endl;
         return false;
@@ -523,6 +550,7 @@ void writeToLog(const std::string& message) {
     std::mutex logMutex;
     std::lock_guard<std::mutex> lock(logMutex);  // Блокируем мьютекс на время записи
     std::ofstream logFile(LOG_PATH, std::ios::app);  // Открываем файл для добавления данных
+
     if (logFile.is_open()) {
         logFile << message << std::endl;
     } else {
@@ -553,6 +581,7 @@ public:
 
         // Выводим сообщение, когда стенд освободится
         auto freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
+
         std::string message = "Запрос студента " + studentName + " на стенде с платой " + boardName + " выполнено.";
         std::cout << message;
 
@@ -575,6 +604,7 @@ public:
 
             // Если стенд свободен, устанавливаем время освобождения на текущий момент + задержка
             auto now = std::chrono::system_clock::now();
+
             if (optimalStand->getFreeTime() <= now) {
                 // Если стенд свободен, меняем его время освобождения
                 optimalStand->updateFreeTime(now + DELAY);
@@ -585,6 +615,7 @@ public:
 
             // Выводим время, когда задание будет выполнено
             auto freeTime = optimalStand->getFreeTime();
+
             std::time_t freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
             std::string message = "Задание будет выполнено на стенде с платой " + request.boardName +
                                 " в " + std::ctime(&freeTime_t);
@@ -628,14 +659,18 @@ int main() {
     RemoteStand stand6("DE10-Lite", system_clock::now());
     
     StandCluster cluster;
+
     cluster.addStand(stand1);
     cluster.addStand(stand2);
     cluster.addStand(stand3);
     cluster.addStand(stand4);
     cluster.addStand(stand5);
     cluster.addStand(stand6);
+
     std::cout << std::endl << "Стенды в кластере:" << std::endl;
+
     cluster.printStandsCount();
+
     std::cout << std::endl;
     std::cout << std::endl;
     std::cout << std::endl;
@@ -648,10 +683,12 @@ int main() {
     while (true) {
         std::string filepath;
         std::cin >> filepath;
+
         if (filepath == "exit") {
             std::cout << "Выход из программы." << std::endl;
             break;
         }
+        
         if (checkFile(filepath)){
             Request request = readRequestFromFile(filepath);
             processor.processRequest(request);
