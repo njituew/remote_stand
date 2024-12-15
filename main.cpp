@@ -12,8 +12,25 @@
 #include <future>
 #define DELAY std::chrono::seconds(5)
 
+// Абстрактный класс Stand
+class Stand {
+public:
+    virtual ~Stand() = default;  // Виртуальный деструктор, чтобы базовый класс мог быть удален через указатель на Stand
+
+    // Виртуальный метод для вывода информации о стенде (переопределяется в наследниках)
+    virtual void printInfo() const = 0;
+
+    // Виртуальный метод для увеличения времени освобождения
+    virtual void increaseDelay(std::chrono::seconds delay) = 0;
+    virtual void increaseDelay(std::chrono::minutes delay) = 0;
+    virtual void increaseDelay(std::chrono::hours delay) = 0;
+
+    // Виртуальный метод для обновления времени освобождения
+    virtual void updateFreeTime(std::chrono::system_clock::time_point newTime) = 0;
+};
+
 // Класс удалённого стенда
-class RemoteStand {
+class RemoteStand : public Stand {
 private:
     std::string boardName;  // Название платы
     std::chrono::system_clock::time_point freeTime;  // Время, когда стенд освободится
@@ -34,36 +51,50 @@ public:
     // Деструктор (по умолчанию)
     ~RemoteStand() {}
 
-    // Получить название платы
+    // Геттер название платы
     std::string getBoardName() const {
         return boardName;
     }
 
-    // Получить время, когда стенд освободится
+    // Геттер времени, когда стенд освободится
     std::chrono::system_clock::time_point getFreeTime() const {
         return freeTime;
     }
 
-    // Метод для вывода информации о стенде
-    void printInfo() const {
+    // Сеттер для имени платы
+    void setBoardName(const std::string& newBoardName) {
+        boardName = newBoardName;
+    }
+
+    // Сеттер для времени когда стенд освободится
+    void setFreeTime(std::chrono::system_clock::time_point newFreeTime) {
+        freeTime = newFreeTime;
+    }
+
+    // Переопределение метода для вывода информации о стенде
+    void printInfo() const override {
         std::time_t freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
         std::cout << "Board Name: " << boardName << "\n";
         std::cout << "Free Time: " << std::ctime(&freeTime_t); // выводим время в читаемом формате
     }
 
     // Перегруженный метод для увеличения времени с использованием секунд
-    void increaseDelay(std::chrono::seconds delay) {
+    void increaseDelay(std::chrono::seconds delay) override {
         freeTime += delay;
     }
 
     // Метод для увеличения времени освобождения на заданный кулдаун
-    void increaseDelay(std::chrono::minutes delay) {
+    void increaseDelay(std::chrono::minutes delay) override {
         freeTime += delay;
     }
 
-    // Метод для обновления времени освобождения стенда
-    void updateFreeTime(std::chrono::system_clock::time_point newTime) {
-        freeTime = newTime;
+    void increaseDelay(std::chrono::hours delay) override {
+        freeTime += delay;
+    }
+
+    // Переопределение метода для обновления времени освобождения стенда
+    void updateFreeTime(std::chrono::system_clock::time_point newTime) override {
+        setFreeTime(newTime);
     }
 
     // Оператор сравнения для проверки, освобождается ли стенд раньше другого
@@ -80,14 +111,14 @@ public:
         return *this;
     }
 
-    // Метод для сравнения двух стендов по времени освобождения
+    // Оператор для сравнения двух стендов по времени освобождения
     bool operator==(const RemoteStand& other) const {
         return freeTime == other.freeTime && boardName == other.boardName;
     }
 };
 
 // Тесты класса удалённого стенда
-void test1() {
+void testRemoteStand() {
     using namespace std::chrono;
 
     // Создание объектов с разным временем освобождения
@@ -106,17 +137,38 @@ void test1() {
     assert(stand1.getFreeTime() != stand2.getFreeTime());
     assert(stand1.getFreeTime() == stand3.getFreeTime());
 
+    // Проверка сеттеров
+    stand1.setBoardName("New Board A");
+    assert(stand1.getBoardName() == "New Board A");
+    system_clock::time_point newTime = system_clock::now() + hours(3);
+    stand1.setFreeTime(newTime);
+    assert(stand1.getFreeTime() == newTime);
+
     // Проверка оператора сравнения
     assert(stand2 < stand1); // stand2 освобождается раньше, чем stand1
 
     // Проверка увеличения времени освобождения на кулдаун
     std::chrono::minutes delay(30);  // 30 минут кулдауна
     stand1.increaseDelay(delay);
-    assert(stand1.getFreeTime() == stand3.getFreeTime() + delay);
+    assert(stand1.getFreeTime() == newTime + delay); // Проверяем, что время увеличилось на 30 минут
+
+    // Проверка увеличения времени освобождения с помощью других типов времени
+    std::chrono::seconds secDelay(120);  // 2 минуты в секундах
+    stand1.increaseDelay(secDelay);
+    assert(stand1.getFreeTime() == newTime + delay + secDelay);
+
+    std::chrono::hours hourDelay(1);  // 1 час
+    stand1.increaseDelay(hourDelay);
+    assert(stand1.getFreeTime() == newTime + delay + secDelay + hourDelay);
 
     // Проверка оператора присваивания
     stand2 = stand1;
     assert(stand2 == stand1); // После присваивания stand2 и stand1 должны быть равны
+
+    // Проверка метода обновления времени освобождения
+    system_clock::time_point updatedTime = system_clock::now() + hours(4);
+    stand1.updateFreeTime(updatedTime);
+    assert(stand1.getFreeTime() == updatedTime);
 }
 
 // Класс кластера стендов
@@ -130,9 +182,7 @@ public:
     StandCluster() = default;
 
     // Конструктор копирования
-    StandCluster(const StandCluster& other) {
-        stands = other.stands;  // Копируем весь контейнер
-    }
+    StandCluster(const StandCluster& other) : stands(other.stands) {}
 
     // Деструктор
     ~StandCluster() = default;
@@ -147,11 +197,9 @@ public:
         auto it = stands.find(boardName);
         if (it != stands.end()) {
             auto& standVector = it->second;
-            for (auto vecIt = standVector.begin(); vecIt != standVector.end(); ++vecIt) {
-                if (*vecIt == stand) {
-                    standVector.erase(vecIt);
-                    break;
-                }
+            auto vecIt = std::remove(standVector.begin(), standVector.end(), stand);
+            if (vecIt != standVector.end()) {
+                standVector.erase(vecIt, standVector.end());
             }
         }
     }
@@ -200,10 +248,41 @@ public:
         }
         return *this;
     }
+
+    // Оператор сравнения (==): два кластера равны, если у них одинаковое количество стендов по каждой плате
+    bool operator==(const StandCluster& other) const {
+        return stands == other.stands;
+    }
+
+    // Оператор сравнения (!=): два кластера не равны, если они отличаются по количеству стендов по хотя бы одной плате
+    bool operator!=(const StandCluster& other) const {
+        return !(*this == other);
+    }
+
+    // Оператор сравнения (<): два кластера сравниваются по количеству стендов, можно отсортировать по количеству
+    bool operator<(const StandCluster& other) const {
+        if (stands.size() != other.stands.size()) {
+            return stands.size() < other.stands.size();
+        }
+        for (const auto& pair : stands) {
+            if (other.stands.find(pair.first) == other.stands.end()) {
+                return false; // Если в другом кластере нет такой платы, то этот кластер "меньше"
+            }
+            if (pair.second.size() != other.stands.at(pair.first).size()) {
+                return pair.second.size() < other.stands.at(pair.first).size();
+            }
+        }
+        return false;
+    }
+
+    // Оператор сравнения (>): это обратный оператор по отношению к operator<
+    bool operator>(const StandCluster& other) const {
+        return other < *this;
+    }
 };
 
 // Тесты класса кластера стендов
-void test2() {
+void testStandCluster() {
     using namespace std::chrono;
 
     // Создаем несколько стендов
@@ -257,14 +336,40 @@ void test2() {
 
     // Тест 6: Конструктор копирования
     StandCluster copiedCluster(cluster);
-    assert(copiedCluster.getStandsByBoard("Board A").size() == 0);  // Проверка, что копия пустая после очистки
-    assert(copiedCluster.getStandsByBoard("Board B").size() == 0);  // Проверка, что копия пустая после очистки
+    assert(copiedCluster.getStandsByBoard("Board A").empty());  // Проверка, что копия пустая после очистки
+    assert(copiedCluster.getStandsByBoard("Board B").empty());  // Проверка, что копия пустая после очистки
 
     // Тест 7: Оператор присваивания
     StandCluster assignedCluster;
     assignedCluster = cluster;
-    assert(assignedCluster.getStandsByBoard("Board A").size() == 0);  // Проверка оператора присваивания
-    assert(assignedCluster.getStandsByBoard("Board B").size() == 0);  // Проверка оператора присваивания
+    assert(assignedCluster.getStandsByBoard("Board A").empty());  // Проверка оператора присваивания
+    assert(assignedCluster.getStandsByBoard("Board B").empty());  // Проверка оператора присваивания
+
+    // Тест 8: Оператор сравнения (==)
+    StandCluster cluster2;
+    cluster2.addStand(stand1);
+    cluster2.addStand(stand2);
+    cluster2.addStand(stand3);
+
+    // Кластеры с одинаковым содержимым должны быть равны
+    assert(cluster != cluster2);  // Кластеры с разным содержимым не равны
+    assert(cluster == cluster);   // Кластер должен быть равен сам себе
+
+    // Тест 9: Оператор сравнения (!=)
+    assert(cluster != cluster2);  // Кластеры с разным содержимым не равны
+
+    // Тест 10: Оператор сравнения (<)
+    StandCluster cluster3;
+    cluster3.addStand(stand1);
+    cluster3.addStand(stand2);
+    cluster3.addStand(stand4);
+    cluster3.addStand(stand3);
+
+    // Проверяем, что первый кластер "меньше" второго, т.к. у второго больше стендов
+    assert(cluster < cluster3);
+
+    // Тест 11: Оператор сравнения (>)
+    assert(cluster3 > cluster);  // Проверяем, что второй кластер "больше" первого
 }
 
 // Структура для хранения о заявке
@@ -308,7 +413,7 @@ bool isValidFilePath(const std::string& path) {
     return !path.empty() && path.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/\\:.") == std::string::npos;
 }
 
-void test3() {
+void testIsValidFilePath() {
     // Тестирование валидных путей
     assert(isValidFilePath("/path/to/executable"));
     assert(isValidFilePath("C:/Users/Username/Documents/test.exe"));
@@ -326,7 +431,7 @@ bool isValidGroup(const std::string& group) {
     return std::regex_match(group, groupPattern);
 }
 
-void test4() {
+void testIsValidGroup() {
     // Тестирование валидных групп
     assert(isValidGroup("Group123"));
     assert(isValidGroup("Group01"));
@@ -339,15 +444,17 @@ void test4() {
 }
 
 bool isValidName(const std::string& name) {
-    // Проверка на строку из букв (русских и латинских)
-    std::regex namePattern("^[a-zA-Zа-яА-Я]+$");
+    // Регулярное выражение для проверки только букв (латинских и кириллических) без пробелов
+    std::regex namePattern("^[a-zA-Zа-яА-ЯёЁрРчЧьЬъЪ]+$");
+
+    // Используем std::regex_match для проверки строки
     return std::regex_match(name, namePattern);
 }
 
-void test5() {
+void testIsValidName() {
     // Тестирование валидных имен
     assert(isValidName("John"));
-    assert(isValidName("Иван"));
+    assert(isValidName("Смирнов"));
     assert(isValidName("JaneDoe"));
     
     // Тестирование невалидных имен
@@ -420,7 +527,7 @@ public:
     RequestProcessor(StandCluster& cluster) : cluster(cluster) {}
 
     // Асинхронная функция для вывода сообщения по завершении работы
-    void asyncMessage(std::chrono::system_clock::time_point freeTime, const std::string& boardName) {
+    void asyncMessage(std::chrono::system_clock::time_point freeTime, const std::string& boardName, const std::string& studentName) {
         // Рассчитываем, сколько времени осталось до времени освобождения
         auto now = std::chrono::system_clock::now();
         auto delay = freeTime - now;
@@ -432,7 +539,7 @@ public:
 
         // Выводим сообщение, когда стенд освободится
         auto freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
-        std::cout << "Запрос выполнен на стенде с платой " << boardName << "\n";
+        std::cout << "Запрос студента " << studentName << " на стенде с платой " << boardName << " выполнено." << std::endl;
     }
 
     // Обработка заявки
@@ -463,7 +570,7 @@ public:
             std::cout << "Задание будет выполнено на стенде с платой " << request.boardName
                       << " в " << std::ctime(&freeTime_t);
 
-            std::thread(&RequestProcessor::asyncMessage, this, optimalStand->getFreeTime(), request.boardName).detach();
+            std::thread(&RequestProcessor::asyncMessage, this, optimalStand->getFreeTime(), request.boardName, request.lastName).detach();
         } else {
             std::cout << "Нет доступных стендов для платы: " << request.boardName << std::endl;
         }
@@ -471,13 +578,16 @@ public:
 };
 
 int main() {
-    test1();
-    test2();
-    test3();
-    test4();
-    test5();
+    std::cout << "Проверка тестов перед работой..." << std::endl;
+    
+    // Проверка тестов перед работой
+    testRemoteStand();
+    testStandCluster();
+    testIsValidFilePath();
+    testIsValidGroup();
+    testIsValidName();
 
-    std::cout << "Тесты прошли, работаем." << std::endl;
+    std::cout << "Тесты прошли успешно. Программа готова к использованию." << std::endl;
     
     using namespace std::chrono;
 
@@ -495,7 +605,7 @@ int main() {
     cluster.addStand(stand4);
     cluster.addStand(stand5);
     cluster.addStand(stand6);
-    std::cout << "Стенды в кластере:" << std::endl;
+    std::cout << std::endl << "Стенды в кластере:" << std::endl;
     cluster.printStandsCount();
     std::cout << std::endl;
     std::cout << std::endl;
@@ -503,16 +613,22 @@ int main() {
 
     // Создаем процессор заявок
     RequestProcessor processor(cluster);
+    
+    // Обрабатываем заявки
+    std::cout << "Введите путь к файлу с заявкой: " << std::endl;
     while (true) {
         std::string filepath;
         std::cin >> filepath;
+        if (filepath == "exit") {
+            std::cout << "Выход из программы." << std::endl;
+            break;
+        }
         if (checkFile(filepath)){
             Request request = readRequestFromFile(filepath);
             processor.processRequest(request);
         }
 
     }
-
 
     return 0;
 }
