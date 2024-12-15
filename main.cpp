@@ -1,11 +1,16 @@
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <sstream>
 #include <chrono>
 #include <map>
 #include <vector>
 #include <cassert>
 #include <ctime>
+#include <regex>
+#define DELAY std::chrono::seconds(10)
 
+// Класс удалённого стенда
 class RemoteStand {
 private:
     std::string boardName;  // Название платы
@@ -44,14 +49,24 @@ public:
         std::cout << "Free Time: " << std::ctime(&freeTime_t); // выводим время в читаемом формате
     }
 
-    // Оператор сравнения для проверки, освобождается ли стенд раньше другого
-    bool operator<(const RemoteStand& other) const {
-        return freeTime < other.freeTime;
+    // Перегруженный метод для увеличения времени с использованием секунд
+    void increaseDelay(std::chrono::seconds delay) {
+        freeTime += delay;
+    }
+
+    // Метод для увеличения времени освобождения на заданный кулдаун
+    void increaseDelay(std::chrono::minutes delay) {
+        freeTime += delay;
     }
 
     // Метод для обновления времени освобождения стенда
     void updateFreeTime(std::chrono::system_clock::time_point newTime) {
         freeTime = newTime;
+    }
+
+    // Оператор сравнения для проверки, освобождается ли стенд раньше другого
+    bool operator<(const RemoteStand& other) const {
+        return freeTime < other.freeTime;
     }
 
     // Перегрузка оператора присваивания
@@ -63,17 +78,13 @@ public:
         return *this;
     }
 
-    // Метод для увеличения времени освобождения на заданный кулдаун
-    void increaseDelay(std::chrono::minutes delay) {
-        freeTime += delay;  // Увеличиваем на количество минут (или любое другое время)
-    }
-
     // Метод для сравнения двух стендов по времени освобождения
     bool operator==(const RemoteStand& other) const {
         return freeTime == other.freeTime && boardName == other.boardName;
     }
 };
 
+// Тесты класса удалённого стенда
 void test1() {
     using namespace std::chrono;
 
@@ -104,10 +115,9 @@ void test1() {
     // Проверка оператора присваивания
     stand2 = stand1;
     assert(stand2 == stand1); // После присваивания stand2 и stand1 должны быть равны
-
-    std::cout << "All tests passed!\n";
 }
 
+// Класс кластера стендов
 class StandCluster {
 private:
     // Словарь название платы - вектор стендов
@@ -124,14 +134,6 @@ public:
 
     // Деструктор
     ~StandCluster() = default;
-
-    // Оператор присваивания
-    StandCluster& operator=(const StandCluster& other) {
-        if (this != &other) {
-            stands = other.stands;
-        }
-        return *this;
-    }
 
     // Метод для добавления стенда в кластер
     void addStand(const RemoteStand& stand) {
@@ -181,8 +183,24 @@ public:
             }
         }
     }
+
+    // Метод для вывода количества стендов с каждой платой
+    void printStandsCount() const {
+        for (const auto& pair : stands) {
+            std::cout << pair.first << " : " << pair.second.size() << "\n"; // pair.first - это название платы, pair.second.size() - количество стендов
+        }
+    }
+
+    // Оператор присваивания
+    StandCluster& operator=(const StandCluster& other) {
+        if (this != &other) {
+            stands = other.stands;
+        }
+        return *this;
+    }
 };
 
+// Тесты класса кластера стендов
 void test2() {
     using namespace std::chrono;
 
@@ -245,11 +263,9 @@ void test2() {
     assignedCluster = cluster;
     assert(assignedCluster.getStandsByBoard("Board A").size() == 0);  // Проверка оператора присваивания
     assert(assignedCluster.getStandsByBoard("Board B").size() == 0);  // Проверка оператора присваивания
-
-    std::cout << "All tests passed!" << std::endl;
 }
 
-// Структура для хранения информации о заявке
+// Структура для хранения о заявке
 struct Request {
     std::string lastName;
     std::string firstName;
@@ -258,8 +274,102 @@ struct Request {
     std::string boardName;
     std::string executablePath;
     std::string resultPath;
-    std::chrono::minutes delay;
 };
+
+// Функция для чтения заявки из файла
+Request readRequestFromFile(const std::string& fileName) {
+    std::ifstream file(fileName);
+    Request request;
+
+    if (!file.is_open()) {
+        std::cerr << "Ошибка при открытии файла!" << std::endl;
+        return request;
+    }
+
+    // Читаем данные по очереди
+    std::getline(file, request.lastName);
+    std::getline(file, request.firstName);
+    std::getline(file, request.patronymic);
+    std::getline(file, request.group);
+    std::getline(file, request.boardName);
+    std::getline(file, request.executablePath);
+    std::getline(file, request.resultPath);
+
+    file.close(); // Закрытие файла
+
+    return request;
+}
+
+// Функции для проверки файла 
+bool isValidFilePath(const std::string& path) {
+    // Простой пример проверки пути (можно улучшить под платформу)
+    return !path.empty() && path.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/\\:.") == std::string::npos;
+}
+
+bool isValidGroup(const std::string& group) {
+    // Проверка на строку, состоящую из букв (русских и латинских) и цифр
+    std::regex groupPattern("^[a-zA-Zа-яА-Я0-9]+$");
+    return std::regex_match(group, groupPattern);
+}
+
+bool isValidName(const std::string& name) {
+    // Проверка на строку из букв (русских и латинских)
+    std::regex namePattern("^[a-zA-Zа-яА-Я]+$");
+    return std::regex_match(name, namePattern);
+}
+
+bool checkFileStructure(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Не удалось открыть файл: " << filename << std::endl;
+        return false;
+    }
+
+    std::string line;
+    std::getline(file, line);  // Фамилия
+    if (!isValidName(line)) {
+        std::cerr << "Ошибка в фамилии: " << line << std::endl;
+        return false;
+    }
+
+    std::getline(file, line);  // Имя
+    if (!isValidName(line)) {
+        std::cerr << "Ошибка в имени: " << line << std::endl;
+        return false;
+    }
+
+    std::getline(file, line);  // Отчество
+    if (!isValidName(line)) {
+        std::cerr << "Ошибка в отчество: " << line << std::endl;
+        return false;
+    }
+
+    std::getline(file, line);  // Группа
+    if (!isValidGroup(line)) {
+        std::cerr << "Ошибка в группе: " << line << std::endl;
+        return false;
+    }
+
+    std::getline(file, line);  // Название платы
+    if (line.empty()) {
+        std::cerr << "Название платы не может быть пустым." << std::endl;
+        return false;
+    }
+
+    std::getline(file, line);  // Путь к исполняемому файлу
+    if (!isValidFilePath(line)) {
+        std::cerr << "Неверный путь к исполняемому файлу: " << line << std::endl;
+        return false;
+    }
+
+    std::getline(file, line);  // Путь для сохранения результата
+    if (!isValidFilePath(line)) {
+        std::cerr << "Неверный путь для сохранения результата: " << line << std::endl;
+        return false;
+    }
+
+    return true;
+}
 
 // Класс для обработки заявки
 class RequestProcessor {
@@ -286,10 +396,10 @@ public:
             auto now = std::chrono::system_clock::now();
             if (optimalStand->getFreeTime() <= now) {
                 // Если стенд свободен, меняем его время освобождения
-                optimalStand->updateFreeTime(now + request.delay);
+                optimalStand->updateFreeTime(now + DELAY);
             } else {
                 // Если стенд занят, увеличиваем его время освобождения
-                optimalStand->increaseDelay(request.delay);
+                optimalStand->increaseDelay(DELAY);
             }
 
             // Выводим время, когда задание будет выполнено
@@ -302,7 +412,6 @@ public:
         }
     }
 };
-
 
 int main() {
     test1();
@@ -325,16 +434,19 @@ int main() {
     cluster.addStand(stand4);
     cluster.addStand(stand5);
     cluster.addStand(stand6);
-    cluster.printAllStands();
+    std::cout << "Стенды в кластере:" << std::endl;
+    cluster.printStandsCount();
+    std::cout << std::endl;
+    std::cout << std::endl;
+    std::cout << std::endl;
 
     // Создаем процессор заявок
     RequestProcessor processor(cluster);
-    Request request = {"Иванов", "Егор", "Александрович", "Группа 1", "Arduino Uno", "/path/to/executable", "/path/to/result", std::chrono::minutes(30)};
-    processor.processRequest(request);
-    Request request2 = {"Иванов", "Егор", "Александрович", "Группа 1", "Arduino Uno", "/path/to/executable", "/path/to/result", std::chrono::minutes(30)};
-    processor.processRequest(request2);
-    Request request3 = {"Иванов", "Егор", "Александрович", "Группа 1", "Arduino Uno", "/path/to/executable", "/path/to/result", std::chrono::minutes(30)};
-    processor.processRequest(request3);
+
+    if (checkFileStructure("test_appl.txt")) {   
+        Request request = readRequestFromFile("test_appl.txt");
+        processor.processRequest(request);
+    }
 
 
     return 0;
