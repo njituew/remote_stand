@@ -8,7 +8,9 @@
 #include <cassert>
 #include <ctime>
 #include <regex>
-#define DELAY std::chrono::seconds(10)
+#include <thread>
+#include <future>
+#define DELAY std::chrono::seconds(20)
 
 // Класс удалённого стенда
 class RemoteStand {
@@ -374,11 +376,28 @@ bool checkFile(const std::string& filename) {
 // Класс для обработки заявки
 class RequestProcessor {
 private:
-    StandCluster& cluster;  // Кластер стендов для выбора оптимального стенда
+    // Кластер стендов для выбора оптимального стенда
+    StandCluster& cluster;
 
 public:
     // Конструктор
     RequestProcessor(StandCluster& cluster) : cluster(cluster) {}
+
+    // Асинхронная функция для вывода сообщения по завершении работы
+    void asyncMessage(std::chrono::system_clock::time_point freeTime, const std::string& boardName) {
+        // Рассчитываем, сколько времени осталось до времени освобождения
+        auto now = std::chrono::system_clock::now();
+        auto delay = freeTime - now;
+
+        // Если стенд освободится в будущем, ждем
+        if (delay > std::chrono::seconds(0)) {
+            std::this_thread::sleep_for(delay);  // Задержка до наступления времени
+        }
+
+        // Выводим сообщение, когда стенд освободится
+        auto freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
+        std::cout << "Запрос выполнен на стенде с платой " << boardName << "\n";
+    }
 
     // Обработка заявки
     void processRequest(const Request& request) {
@@ -407,6 +426,8 @@ public:
             std::time_t freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
             std::cout << "Задание будет выполнено на стенде с платой " << request.boardName
                       << " в " << std::ctime(&freeTime_t);
+
+            std::thread(&RequestProcessor::asyncMessage, this, optimalStand->getFreeTime(), request.boardName).detach();
         } else {
             std::cout << "Нет доступных стендов для платы: " << request.boardName << std::endl;
         }
