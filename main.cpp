@@ -10,7 +10,7 @@
 #include <regex>
 #include <thread>
 #include <future>
-#define DELAY std::chrono::seconds(20)
+#define DELAY std::chrono::seconds(5)
 
 // Класс удалённого стенда
 class RemoteStand {
@@ -308,16 +308,52 @@ bool isValidFilePath(const std::string& path) {
     return !path.empty() && path.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/\\:.") == std::string::npos;
 }
 
+void test3() {
+    // Тестирование валидных путей
+    assert(isValidFilePath("/path/to/executable"));
+    assert(isValidFilePath("C:/Users/Username/Documents/test.exe"));
+    assert(isValidFilePath("valid_path/with/underscore"));
+    
+    // Тестирование невалидных путей
+    assert(!isValidFilePath("invalid|path"));
+    assert(!isValidFilePath("path with spaces"));
+    assert(!isValidFilePath("<invalid>path"));
+}
+
 bool isValidGroup(const std::string& group) {
     // Проверка на строку, состоящую из букв (русских и латинских) и цифр
     std::regex groupPattern("^[a-zA-Zа-яА-Я0-9]+$");
     return std::regex_match(group, groupPattern);
 }
 
+void test4() {
+    // Тестирование валидных групп
+    assert(isValidGroup("Group123"));
+    assert(isValidGroup("Group01"));
+    assert(isValidGroup("12345"));
+    
+    // Тестирование невалидных групп
+    assert(!isValidGroup("Group@123"));
+    assert(!isValidGroup("Invalid Group"));
+    assert(!isValidGroup("Group#123"));
+}
+
 bool isValidName(const std::string& name) {
     // Проверка на строку из букв (русских и латинских)
     std::regex namePattern("^[a-zA-Zа-яА-Я]+$");
     return std::regex_match(name, namePattern);
+}
+
+void test5() {
+    // Тестирование валидных имен
+    assert(isValidName("John"));
+    assert(isValidName("Иван"));
+    assert(isValidName("JaneDoe"));
+    
+    // Тестирование невалидных имен
+    assert(!isValidName("John123"));
+    assert(!isValidName("Invalid Name@"));
+    assert(!isValidName("Иванов_Петр"));
 }
 
 bool checkFile(const std::string& filename) {
@@ -437,6 +473,10 @@ public:
 int main() {
     test1();
     test2();
+    test3();
+    test4();
+    test5();
+
     std::cout << "Тесты прошли, работаем." << std::endl;
     
     using namespace std::chrono;
