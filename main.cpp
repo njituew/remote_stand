@@ -552,7 +552,7 @@ void writeToLog(const std::string& message) {
     std::ofstream logFile(LOG_PATH, std::ios::app);  // Открываем файл для добавления данных
 
     if (logFile.is_open()) {
-        logFile << message << std::endl;
+        logFile << message << '\n';  // Используем '\n' вместо std::endl
     } else {
         std::cerr << "Не удалось открыть лог-файл!" << std::endl;
     }
@@ -583,11 +583,18 @@ public:
         auto freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
 
         std::string message = "Запрос студента " + studentName + " на стенде с платой " + boardName + " выполнено.";
-        std::cout << message;
+        
+        // Используем std::mutex для синхронизации вывода в терминал
+        static std::mutex coutMutex;
+        {
+            std::lock_guard<std::mutex> lock(coutMutex);  // Блокируем вывод в консоль
+            std::cout << message << std::endl;
+        }
 
         // Записываем в лог
         writeToLog(message);
     }
+
 
 
     // Обработка заявки
