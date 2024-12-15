@@ -74,7 +74,6 @@ public:
     }
 };
 
-// Тестирование
 void test1() {
     using namespace std::chrono;
 
@@ -153,13 +152,9 @@ public:
         }
     }
 
-    // Метод для получения всех стендов по названию платы
-    std::vector<RemoteStand> getStandsByBoard(const std::string& boardName) const {
-        auto it = stands.find(boardName);
-        if (it != stands.end()) {
-            return it->second;
-        }
-        return {};  // Возвращаем пустой вектор, если не нашли
+    // Метод для получения всех стендов по названию платы (ссылку на вектор)
+    std::vector<RemoteStand>& getStandsByBoard(const std::string& boardName) {
+        return stands[boardName];
     }
 
     // Метод для увеличения времени освобождения всех стендов на заданный кулдаун
@@ -254,6 +249,61 @@ void test2() {
     std::cout << "All tests passed!" << std::endl;
 }
 
+// Структура для хранения информации о заявке
+struct Request {
+    std::string lastName;
+    std::string firstName;
+    std::string patronymic;
+    std::string group;
+    std::string boardName;
+    std::string executablePath;
+    std::string resultPath;
+    std::chrono::minutes delay;
+};
+
+// Класс для обработки заявки
+class RequestProcessor {
+private:
+    StandCluster& cluster;  // Кластер стендов для выбора оптимального стенда
+
+public:
+    // Конструктор
+    RequestProcessor(StandCluster& cluster) : cluster(cluster) {}
+
+    // Обработка заявки
+    void processRequest(const Request& request) {
+        // Ищем стенд с самым ранним временем освобождения для заданной платы
+        auto& stands = cluster.getStandsByBoard(request.boardName);  // Получаем ссылку на вектор стендов
+
+        // Если стенды для этой платы есть
+        if (!stands.empty()) {
+            // Находим стенд с минимальным временем освобождения
+            auto optimalStand = std::min_element(stands.begin(), stands.end(), [](RemoteStand& a, RemoteStand& b) {
+                return a.getFreeTime() < b.getFreeTime();
+            });
+
+            // Если стенд свободен, устанавливаем время освобождения на текущий момент + задержка
+            auto now = std::chrono::system_clock::now();
+            if (optimalStand->getFreeTime() <= now) {
+                // Если стенд свободен, меняем его время освобождения
+                optimalStand->updateFreeTime(now + request.delay);
+            } else {
+                // Если стенд занят, увеличиваем его время освобождения
+                optimalStand->increaseDelay(request.delay);
+            }
+
+            // Выводим время, когда задание будет выполнено
+            auto freeTime = optimalStand->getFreeTime();
+            std::time_t freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
+            std::cout << "Задание будет выполнено на стенде с платой " << request.boardName
+                      << " в " << std::ctime(&freeTime_t);
+        } else {
+            std::cout << "Нет доступных стендов для платы: " << request.boardName << std::endl;
+        }
+    }
+};
+
+
 int main() {
     test1();
     test2();
@@ -276,6 +326,16 @@ int main() {
     cluster.addStand(stand5);
     cluster.addStand(stand6);
     cluster.printAllStands();
+
+    // Создаем процессор заявок
+    RequestProcessor processor(cluster);
+    Request request = {"Иванов", "Егор", "Александрович", "Группа 1", "Arduino Uno", "/path/to/executable", "/path/to/result", std::chrono::minutes(30)};
+    processor.processRequest(request);
+    Request request2 = {"Иванов", "Егор", "Александрович", "Группа 1", "Arduino Uno", "/path/to/executable", "/path/to/result", std::chrono::minutes(30)};
+    processor.processRequest(request2);
+    Request request3 = {"Иванов", "Егор", "Александрович", "Группа 1", "Arduino Uno", "/path/to/executable", "/path/to/result", std::chrono::minutes(30)};
+    processor.processRequest(request3);
+
 
     return 0;
 }
