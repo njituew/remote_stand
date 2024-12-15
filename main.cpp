@@ -552,7 +552,7 @@ void writeToLog(const std::string& message) {
     std::ofstream logFile(LOG_PATH, std::ios::app);  // Открываем файл для добавления данных
 
     if (logFile.is_open()) {
-        logFile << message << '\n';  // Используем '\n' вместо std::endl
+        logFile << message;
     } else {
         std::cerr << "Не удалось открыть лог-файл!" << std::endl;
     }
@@ -592,7 +592,7 @@ public:
         }
 
         // Записываем в лог
-        writeToLog(message);
+        writeToLog(message+"\n");
     }
 
 
