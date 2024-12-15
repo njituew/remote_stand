@@ -318,7 +318,7 @@ bool isValidName(const std::string& name) {
     return std::regex_match(name, namePattern);
 }
 
-bool checkFileStructure(const std::string& filename) {
+bool checkFile(const std::string& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Не удалось открыть файл: " << filename << std::endl;
@@ -442,10 +442,14 @@ int main() {
 
     // Создаем процессор заявок
     RequestProcessor processor(cluster);
+    while (true) {
+        std::string filepath;
+        std::cin >> filepath;
+        if (checkFile(filepath)){
+            Request request = readRequestFromFile(filepath);
+            processor.processRequest(request);
+        }
 
-    if (checkFileStructure("test_appl.txt")) {   
-        Request request = readRequestFromFile("test_appl.txt");
-        processor.processRequest(request);
     }
 
 
