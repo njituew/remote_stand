@@ -591,6 +591,7 @@ int main() {
     
     using namespace std::chrono;
 
+    // Заполнение кластера
     RemoteStand stand1("Arduino Uno", system_clock::now());
     RemoteStand stand2("Arduino Uno", system_clock::now());
     RemoteStand stand3("STM-32", system_clock::now());
