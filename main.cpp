@@ -10,7 +10,9 @@
 #include <regex>
 #include <thread>
 #include <future>
+#include <mutex>
 #define DELAY std::chrono::seconds(5)
+#define LOG_PATH "logs.txt"
 
 // Абстрактный класс Stand
 class Stand {
@@ -516,6 +518,18 @@ bool checkFile(const std::string& filename) {
     return true;
 }
 
+// Функция для записи в лог
+void writeToLog(const std::string& message) {
+    std::mutex logMutex;
+    std::lock_guard<std::mutex> lock(logMutex);  // Блокируем мьютекс на время записи
+    std::ofstream logFile(LOG_PATH, std::ios::app);  // Открываем файл для добавления данных
+    if (logFile.is_open()) {
+        logFile << message << std::endl;
+    } else {
+        std::cerr << "Не удалось открыть лог-файл!" << std::endl;
+    }
+}
+
 // Класс для обработки заявки
 class RequestProcessor {
 private:
@@ -539,8 +553,13 @@ public:
 
         // Выводим сообщение, когда стенд освободится
         auto freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
-        std::cout << "Запрос студента " << studentName << " на стенде с платой " << boardName << " выполнено." << std::endl;
+        std::string message = "Запрос студента " + studentName + " на стенде с платой " + boardName + " выполнено.";
+        std::cout << message;
+
+        // Записываем в лог
+        writeToLog(message);
     }
+
 
     // Обработка заявки
     void processRequest(const Request& request) {
@@ -567,12 +586,21 @@ public:
             // Выводим время, когда задание будет выполнено
             auto freeTime = optimalStand->getFreeTime();
             std::time_t freeTime_t = std::chrono::system_clock::to_time_t(freeTime);
-            std::cout << "Задание будет выполнено на стенде с платой " << request.boardName
-                      << " в " << std::ctime(&freeTime_t);
+            std::string message = "Задание будет выполнено на стенде с платой " + request.boardName +
+                                " в " + std::ctime(&freeTime_t);
+            std::cout << message;
 
+            // Записываем в лог
+            writeToLog(message);
+
+            // Асинхронное сообщение
             std::thread(&RequestProcessor::asyncMessage, this, optimalStand->getFreeTime(), request.boardName, request.lastName).detach();
         } else {
-            std::cout << "Нет доступных стендов для платы: " << request.boardName << std::endl;
+            std::string message = "Нет доступных стендов для платы: " + request.boardName;
+            std::cout << message << std::endl;
+
+            // Записываем в лог
+            writeToLog(message);
         }
     }
 };
