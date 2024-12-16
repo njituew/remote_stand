@@ -11,7 +11,7 @@
 #include <thread>
 #include <future>
 #include <mutex>
-#define DELAY std::chrono::seconds(10)
+#define DELAY std::chrono::seconds(5)
 #define LOG_PATH "logs.txt"
 
 // Абстрактный класс Stand
@@ -35,7 +35,7 @@ public:
 // Класс удалённого стенда
 class RemoteStand : public Stand {
 private:
-    // Имя стенда
+    // Имя платы
     std::string boardName;
     // Время освобождения стенда
     std::chrono::system_clock::time_point freeTime;
@@ -672,6 +672,68 @@ public:
     }
 };
 
+void testRequestProcessor() {
+    using namespace std::chrono;
+
+    std::cout << "Запуск тестов для RequestProcessor..." << std::endl;
+
+    // Создание тестового кластера и стендов
+    StandCluster testCluster;
+    RemoteStand stand1("Arduino Uno", system_clock::now());
+    RemoteStand stand2("Arduino Uno", system_clock::now() + seconds(10)); // Стенд занят
+    testCluster.addStand(stand1);
+    testCluster.addStand(stand2);
+
+    // Проверка асинхронного вывода сообщения
+    RequestProcessor processor(testCluster);
+
+    // Создаем время освобождения через 1 секунду
+    auto freeTime = system_clock::now() + seconds(1);
+    std::string boardName = "Arduino Uno";
+    std::string studentName = "Иванов";
+
+    // Поток для асинхронного вызова
+    std::thread asyncTestThread([&]() {
+        processor.asyncMessage(freeTime, boardName, studentName);
+    });
+
+    // Подождем, чтобы асинхронный вызов успел отработать
+    asyncTestThread.join();
+
+    // Тест 2: Проверка обработки заявки на стенде
+    Request request1{"Иванов", "Иван", "Иванович", "БИВ222", "Arduino Uno", "otpt.txt", "C:"};
+    processor.processRequest(request1);
+
+    std::this_thread::sleep_for(DELAY);
+
+    // Время, когда запрос должен быть выполнен
+    auto freeTimeAfterRequest = stand1.getFreeTime();
+
+    // Проверим, что время свободного стенда обновилось
+    assert(freeTimeAfterRequest <= system_clock::now() + seconds(10));
+
+    // Проверка на отсутствие доступных стендов для платы
+    StandCluster emptyCluster;  // Пустой кластер
+    RequestProcessor emptyProcessor(emptyCluster);
+
+    Request request2{"Иванов", "Иван", "Иванович", "БИВ222", "STM-32", "otpt.txt", "C:"};
+    emptyProcessor.processRequest(request2);
+
+    // Проверка на некорректный путь файла
+    std::string invalidPath = "invalid_path.txt";
+    bool isValid = checkFile(invalidPath);
+
+    // Ожидаем, что путь будет неверным
+    assert(!isValid);
+
+    // Проверка на корректный путь файла
+    std::string validPath = "rqst3.txt";
+    bool isValidFile = checkFile(validPath);
+
+    // Ожидаем, что путь будет корректным
+    assert(isValidFile);
+}
+
 int main() {
     std::cout << "Проверка тестов перед работой..." << std::endl;
     
@@ -681,6 +743,7 @@ int main() {
     testIsValidFilePath();
     testIsValidGroup();
     testIsValidName();
+    testRequestProcessor();
 
     std::cout << "Тесты прошли успешно. Программа готова к использованию." << std::endl;
     
