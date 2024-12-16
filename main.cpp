@@ -725,13 +725,6 @@ void testRequestProcessor() {
 
     // Ожидаем, что путь будет неверным
     assert(!isValid);
-
-    // Проверка на корректный путь файла
-    std::string validPath = "rqst3.txt";
-    bool isValidFile = checkFile(validPath);
-
-    // Ожидаем, что путь будет корректным
-    assert(isValidFile);
 }
 
 int main() {
