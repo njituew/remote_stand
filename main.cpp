@@ -11,7 +11,7 @@
 #include <thread>
 #include <future>
 #include <mutex>
-#define DELAY std::chrono::seconds(5)
+#define DELAY std::chrono::seconds(10)
 #define LOG_PATH "logs.txt"
 
 // Абстрактный класс Stand
@@ -20,7 +20,7 @@ public:
     // Виртуальный деструктор, чтобы базовый класс мог быть удален через указатель на Stand
     virtual ~Stand() = default;
 
-    // Виртуальный метод для вывода информации о стенде (переопределяется в наследниках)
+    // Виртуальный метод для вывода информации о стенде
     virtual void printInfo() const = 0;
 
     // Виртуальный метод для увеличения времени освобождения
@@ -35,8 +35,10 @@ public:
 // Класс удалённого стенда
 class RemoteStand : public Stand {
 private:
-    std::string boardName;  // Название платы
-    std::chrono::system_clock::time_point freeTime;  // Время, когда стенд освободится
+    // Имя стенда
+    std::string boardName;
+    // Время освобождения стенда
+    std::chrono::system_clock::time_point freeTime;
 
 public:
     // Конструктор по умолчанию
@@ -51,7 +53,7 @@ public:
     RemoteStand(const RemoteStand& other)
         : boardName(other.boardName), freeTime(other.freeTime) {}
 
-    // Деструктор (по умолчанию)
+    // Деструктор
     ~RemoteStand() {}
 
     // Геттер название платы
@@ -82,16 +84,17 @@ public:
         std::cout << "Free Time: " << std::ctime(&freeTime_t); // выводим время в читаемом формате
     }
 
-    // Перегруженный метод для увеличения времени с использованием секунд
+    // Метод для увеличения времени освобождения (секунды)
     void increaseDelay(std::chrono::seconds delay) override {
         freeTime += delay;
     }
 
-    // Метод для увеличения времени освобождения на заданный кулдаун
+    // Метод для увеличения времени освобождения (минуты)
     void increaseDelay(std::chrono::minutes delay) override {
         freeTime += delay;
     }
 
+    // Метод для увеличения времени освобождения (часы)
     void increaseDelay(std::chrono::hours delay) override {
         freeTime += delay;
     }
@@ -106,7 +109,7 @@ public:
         return freeTime < other.freeTime;
     }
 
-    // Перегрузка оператора присваивания
+    // Оператор присваивания стендов
     RemoteStand& operator=(const RemoteStand& other) {
         if (this != &other) {
             boardName = other.boardName;
@@ -154,9 +157,11 @@ void testRemoteStand() {
     assert(stand2 < stand1); // stand2 освобождается раньше, чем stand1
 
     // Проверка увеличения времени освобождения на кулдаун
-    std::chrono::minutes delay(30);  // 30 минут кулдауна
+    std::chrono::minutes delay(30);
     stand1.increaseDelay(delay);
-    assert(stand1.getFreeTime() == newTime + delay); // Проверяем, что время увеличилось на 30 минут
+
+    // Проверяем, что время увеличилось на 30 минут
+    assert(stand1.getFreeTime() == newTime + delay);
 
     // Проверка увеличения времени освобождения с помощью других типов времени
     std::chrono::seconds secDelay(120);  // 2 минуты в секундах
@@ -169,7 +174,8 @@ void testRemoteStand() {
 
     // Проверка оператора присваивания
     stand2 = stand1;
-    assert(stand2 == stand1); // После присваивания stand2 и stand1 должны быть равны
+    // После присваивания stand2 и stand1 должны быть равны
+    assert(stand2 == stand1);
 
     // Проверка метода обновления времени освобождения
     system_clock::time_point updatedTime = system_clock::now() + hours(4);
@@ -247,7 +253,7 @@ public:
     // Метод для вывода количества стендов с каждой платой
     void printStandsCount() const {
         for (const auto& pair : stands) {
-            std::cout << pair.first << " : " << pair.second.size() << "\n"; // pair.first - это название платы, pair.second.size() - количество стендов
+            std::cout << pair.first << " : " << pair.second.size() << "\n";
         }
     }
 
@@ -308,7 +314,7 @@ void testStandCluster() {
     // Создаем кластер стендов
     StandCluster cluster;
 
-    // Тест 1: Добавление стендов
+    // Добавление стендов
     cluster.addStand(stand1);
     cluster.addStand(stand2);
     cluster.addStand(stand3);
@@ -322,19 +328,19 @@ void testStandCluster() {
     assert(standsA.size() == 3);  // Должно быть 3 стенда для Board A
     assert(standsB.size() == 1);  // Должно быть 1 стенд для Board B
 
-    // Тест 2: Удаление стенда
+    // Удаление стенда
     cluster.removeStand("Board A", stand1);  // Удаляем stand1 для Board A
     standsA = cluster.getStandsByBoard("Board A");
 
     // Проверяем, что один стенд был удален
     assert(standsA.size() == 2);  // Должно быть 2 стенда для Board A
 
-    // Тест 3: Получение стендов по названию платы
+    // Получение стендов по названию платы
     std::vector<RemoteStand> standsAAfterRemoval = cluster.getStandsByBoard("Board A");
     assert(standsAAfterRemoval.size() == 2);  // После удаления stand1 осталось 2 стенда для Board A
 
-    // Тест 4: Увеличение времени освобождения для всех стендов
-    minutes cooldown(30);  // Кулдаун 30 минут
+    // Увеличение времени освобождения для всех стендов
+    minutes cooldown(30);
     cluster.increaseCooldownForAllStands("Board A", cooldown);
 
     // Проверяем, что время освобождения стендов увеличилось
@@ -342,30 +348,32 @@ void testStandCluster() {
     auto originalFreeTime = stand2.getFreeTime();
     auto updatedFreeTime = updatedStandsA[0].getFreeTime();
 
-    assert(updatedFreeTime == originalFreeTime + cooldown);  // Время должно быть увеличено на 30 минут
+    assert(updatedFreeTime == originalFreeTime + cooldown);
 
-    // Тест 5: Очистка всех стендов
+    // Очистка всех стендов
     cluster.clearAllStands();
 
     assert(cluster.getStandsByBoard("Board A").empty());  // Все стенды для Board A должны быть удалены
     assert(cluster.getStandsByBoard("Board B").empty());  // Все стенды для Board B должны быть удалены
 
-    // Тест 6: Конструктор копирования
+    // Конструктор копирования
     StandCluster copiedCluster(cluster);
 
     assert(copiedCluster.getStandsByBoard("Board A").empty());  // Проверка, что копия пустая после очистки
     assert(copiedCluster.getStandsByBoard("Board B").empty());  // Проверка, что копия пустая после очистки
 
-    // Тест 7: Оператор присваивания
+    // Оператор присваивания
     StandCluster assignedCluster;
     assignedCluster = cluster;
 
-    assert(assignedCluster.getStandsByBoard("Board A").empty());  // Проверка оператора присваивания
-    assert(assignedCluster.getStandsByBoard("Board B").empty());  // Проверка оператора присваивания
+    // Проверка оператора присваивания
+    assert(assignedCluster.getStandsByBoard("Board A").empty());
+    assert(assignedCluster.getStandsByBoard("Board B").empty());
 
-    // Тест 8: Оператор сравнения (==)
+    // Оператор сравнения (==)
     StandCluster cluster2;
 
+    // Добавление стендов в кластер
     cluster2.addStand(stand1);
     cluster2.addStand(stand2);
     cluster2.addStand(stand3);
@@ -374,12 +382,13 @@ void testStandCluster() {
     assert(cluster != cluster2);  // Кластеры с разным содержимым не равны
     assert(cluster == cluster);   // Кластер должен быть равен сам себе
 
-    // Тест 9: Оператор сравнения (!=)
+    // Оператор сравнения (!=)
     assert(cluster != cluster2);  // Кластеры с разным содержимым не равны
 
-    // Тест 10: Оператор сравнения (<)
+    // Оператор сравнения (<)
     StandCluster cluster3;
 
+    // Добавление стендов в кластер
     cluster3.addStand(stand1);
     cluster3.addStand(stand2);
     cluster3.addStand(stand4);
@@ -388,7 +397,7 @@ void testStandCluster() {
     // Проверяем, что первый кластер "меньше" второго, т.к. у второго больше стендов
     assert(cluster < cluster3);
 
-    // Тест 11: Оператор сравнения (>)
+    // Оператор сравнения (>)
     assert(cluster3 > cluster);  // Проверяем, что второй кластер "больше" первого
 }
 
@@ -408,6 +417,7 @@ Request readRequestFromFile(const std::string& fileName) {
     std::ifstream file(fileName);
     Request request;
 
+    // Проверка открытия файла
     if (!file.is_open()) {
         std::cerr << "Ошибка при открытии файла!" << std::endl;
         return request;
@@ -422,17 +432,19 @@ Request readRequestFromFile(const std::string& fileName) {
     std::getline(file, request.executablePath);
     std::getline(file, request.resultPath);
 
-    file.close(); // Закрытие файла
+    // Закрытие файла   
+    file.close();
 
     return request;
 }
 
-// Функции для проверки файла 
+// Функция проверки пути файла
 bool isValidFilePath(const std::string& path) {
     // Простой пример проверки пути (можно улучшить под платформу)
     return !path.empty() && path.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/\\:.") == std::string::npos;
 }
 
+// Тесты для функции проверки пути файла
 void testIsValidFilePath() {
     // Тестирование валидных путей
     assert(isValidFilePath("/path/to/executable"));
@@ -445,6 +457,7 @@ void testIsValidFilePath() {
     assert(!isValidFilePath("<invalid>path"));
 }
 
+// Функция проверки группы
 bool isValidGroup(const std::string& group) {
     // Проверка на строку, состоящую из букв (русских и латинских) и цифр
     std::regex groupPattern("^[a-zA-Zа-яА-Я0-9]+$");
@@ -452,6 +465,7 @@ bool isValidGroup(const std::string& group) {
     return std::regex_match(group, groupPattern);
 }
 
+// Тесты для функции проверки группы
 void testIsValidGroup() {
     // Тестирование валидных групп
     assert(isValidGroup("Group123"));
@@ -464,6 +478,7 @@ void testIsValidGroup() {
     assert(!isValidGroup("Group#123"));
 }
 
+// Функция проверки имени
 bool isValidName(const std::string& name) {
     // Регулярное выражение для проверки только букв (латинских и кириллических) без пробелов
     std::regex namePattern("^[a-zA-Zа-яА-ЯёЁрРчЧьЬъЪ]+$");
@@ -472,6 +487,7 @@ bool isValidName(const std::string& name) {
     return std::regex_match(name, namePattern);
 }
 
+// Тесты для функции проверки имени
 void testIsValidName() {
     // Тестирование валидных имен
     assert(isValidName("John"));
@@ -484,6 +500,7 @@ void testIsValidName() {
     assert(!isValidName("Иванов_Петр"));
 }
 
+// Функция для проверки файла
 bool checkFile(const std::string& filename) {
     std::ifstream file(filename);
 
@@ -493,49 +510,57 @@ bool checkFile(const std::string& filename) {
     }
 
     std::string line;
-    std::getline(file, line);  // Фамилия
+
+    // Фамилия
+    std::getline(file, line);
 
     if (!isValidName(line)) {
         std::cerr << "Ошибка в фамилии: " << line << std::endl;
         return false;
     }
 
-    std::getline(file, line);  // Имя
+    // Имя
+    std::getline(file, line);
 
     if (!isValidName(line)) {
         std::cerr << "Ошибка в имени: " << line << std::endl;
         return false;
     }
 
-    std::getline(file, line);  // Отчество
+    // Отчество
+    std::getline(file, line);
 
     if (!isValidName(line)) {
         std::cerr << "Ошибка в отчество: " << line << std::endl;
         return false;
     }
 
-    std::getline(file, line);  // Группа
+    // Группа
+    std::getline(file, line);
 
     if (!isValidGroup(line)) {
         std::cerr << "Ошибка в группе: " << line << std::endl;
         return false;
     }
 
-    std::getline(file, line);  // Название платы
+    // Название платы
+    std::getline(file, line);
 
     if (line.empty()) {
         std::cerr << "Название платы не может быть пустым." << std::endl;
         return false;
     }
 
-    std::getline(file, line);  // Путь к исполняемому файлу
+    // Путь к исполняемому файлу
+    std::getline(file, line);
 
     if (!isValidFilePath(line)) {
         std::cerr << "Неверный путь к исполняемому файлу: " << line << std::endl;
         return false;
     }
 
-    std::getline(file, line);  // Путь для сохранения результата
+    // Путь для сохранения результата
+    std::getline(file, line);
 
     if (!isValidFilePath(line)) {
         std::cerr << "Неверный путь для сохранения результата: " << line << std::endl;
@@ -545,11 +570,15 @@ bool checkFile(const std::string& filename) {
     return true;
 }
 
-// Функция для записи в лог
+// Функция для записи в логи
 void writeToLog(const std::string& message) {
     std::mutex logMutex;
-    std::lock_guard<std::mutex> lock(logMutex);  // Блокируем мьютекс на время записи
-    std::ofstream logFile(LOG_PATH, std::ios::app);  // Открываем файл для добавления данных
+
+    // Блокируем мьютекс на время записи
+    std::lock_guard<std::mutex> lock(logMutex);
+
+    // Открываем файл для добавления данных
+    std::ofstream logFile(LOG_PATH, std::ios::app);
 
     if (logFile.is_open()) {
         logFile << message;
@@ -576,7 +605,8 @@ public:
 
         // Если стенд освободится в будущем, ждем
         if (delay > std::chrono::seconds(0)) {
-            std::this_thread::sleep_for(delay);  // Задержка до наступления времени
+            // Задержка до наступления времени
+            std::this_thread::sleep_for(delay);
         }
 
         // Выводим сообщение, когда стенд освободится
@@ -587,15 +617,14 @@ public:
         // Используем std::mutex для синхронизации вывода в терминал
         static std::mutex coutMutex;
         {
-            std::lock_guard<std::mutex> lock(coutMutex);  // Блокируем вывод в консоль
+            // Блокируем вывод в консоль
+            std::lock_guard<std::mutex> lock(coutMutex);
             std::cout << message << std::endl;
         }
 
         // Записываем в лог
         writeToLog(message+"\n");
     }
-
-
 
     // Обработка заявки
     void processRequest(const Request& request) {
@@ -657,7 +686,7 @@ int main() {
     
     using namespace std::chrono;
 
-    // Заполнение кластера
+    // Создание стендов
     RemoteStand stand1("Arduino Uno", system_clock::now());
     RemoteStand stand2("Arduino Uno", system_clock::now());
     RemoteStand stand3("STM-32", system_clock::now());
@@ -667,6 +696,7 @@ int main() {
     
     StandCluster cluster;
 
+    // Добавление стендов в кластер
     cluster.addStand(stand1);
     cluster.addStand(stand2);
     cluster.addStand(stand3);
@@ -674,18 +704,19 @@ int main() {
     cluster.addStand(stand5);
     cluster.addStand(stand6);
 
+    // Вывод информации об имеющихся стендах
     std::cout << std::endl << "Стенды в кластере:" << std::endl;
-
     cluster.printStandsCount();
 
+    // Отделение информации от рабочей области
     std::cout << std::endl;
     std::cout << std::endl;
     std::cout << std::endl;
 
-    // Создаем процессор заявок
+    // Создание процессор заявок
     RequestProcessor processor(cluster);
     
-    // Обрабатываем заявки
+    // Обработка заявок
     std::cout << "Введите путь к файлу с заявкой: " << std::endl;
     while (true) {
         std::string filepath;
@@ -700,7 +731,6 @@ int main() {
             Request request = readRequestFromFile(filepath);
             processor.processRequest(request);
         }
-
     }
 
     return 0;
