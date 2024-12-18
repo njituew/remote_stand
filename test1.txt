@@ -1,0 +1,7 @@
+Иванов
+Иван
+Иванович
+БИВ211
+Arduino Uno
+/users/Ivan/main.cpp
+C:\\Results\Ivanov\
